@@ -402,13 +402,10 @@ function template_nomad_systemd {
   local kill_cmd=$(which kill)
   sudo bash -c "cat > $SYSTEMD_DIR/nomad.service" <<EOF
 [Unit]
-Description=HashiCorp Nomad
-Documentation=https://nomadproject.io/docs/
+Description=Nomad
+Documentation=https://www.nomadproject.io/docs/
 Wants=network-online.target
 After=network-online.target
-ConditionFileNotEmpty=$NOMAD_CONFIG_PATH
-StartLimitIntervalSec=60
-StartLimitBurst=3
 
 # When using Nomad with Consul it is not necessary to start Consul first. These
 # lines start Consul before Nomad as an optimization to avoid Nomad logging
@@ -417,38 +414,42 @@ StartLimitBurst=3
 #After=consul.service
 
 [Service]
+
+# Nomad server should be run as the nomad user. Nomad clients
+# should be run as root
 User=$NOMAD_USER
 Group=$NOMAD_GROUP
-ProtectSystem=full
-ProtectHome=read-only
-PrivateTmp=yes
-PrivateDevices=yes
-SecureBits=keep-caps
-AmbientCapabilities=CAP_IPC_LOCK
-CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK
-NoNewPrivileges=yes
-ExecStart=$NOMAD_DIR_BIN/nomad agent -config $NOMAD_DIR_CONFIG
-ExecReload=$${kill_cmd} --signal HUP \$MAINPID
+
+ExecReload=/bin/kill -HUP \$MAINPID
+ExecStart=/usr/local/bin/nomad agent -config $NOMAD_DIR_CONFIG
 KillMode=process
 KillSignal=SIGINT
-Restart=on-failure
-RestartSec=2
-TimeoutStopSec=30
 LimitNOFILE=65536
 LimitNPROC=infinity
-LimitMEMLOCK=infinity
-EnvironmentFile=-$NOMAD_DIR_CONFIG/nomad.env
-Type=notify
+Restart=on-failure
+RestartSec=2
+
+## Configure unit start rate limiting. Units which are started more than
+## *burst* times within an *interval* time span are not permitted to start any
+## more. Use `StartLimitIntervalSec` or `StartLimitInterval` (depending on
+## systemd version) to configure the checking interval and `StartLimitBurst`
+## to configure how many starts per interval are allowed. The values in the
+## commented lines are defaults.
+
+# StartLimitBurst = 5
+
+## StartLimitIntervalSec is used for systemd versions >= 230
+# StartLimitIntervalSec = 10s
+
+## StartLimitInterval is used for systemd versions < 230
+# StartLimitInterval = 10s
+
 TasksMax=infinity
-# Nomad Server agents should never be force killed,
-# so here we disable OOM (out of memory) killing for this unit.
-# However, you may wish to change this for Client agents, since
-# the workloads that Nomad places may be more important
-# than the Nomad agent itself.
 OOMScoreAdjust=-1000
 
 [Install]
 WantedBy=multi-user.target
+
 EOF
 }
 
