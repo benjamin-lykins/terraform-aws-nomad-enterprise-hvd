@@ -204,23 +204,41 @@ function retrieve_gossip_encryption_key_from_awssm {
     fi
 }
 
-# user_create creates a dedicated linux user for Nomad
+# user_group_create ensures a dedicated linux user and group for Nomad exist
 function user_group_create {
+  # If running Nomad as root (client mode), nothing to create.
+  if [[ "$NOMAD_USER" == "root" ]]; then
+    log "INFO" "Using root user for Nomad client; skipping user/group creation."
+    return 0
+  fi
 
-    if id -u $NOMAD_USER >/dev/null 2>&1; then
-        log "INFO" "Detected user '$NOMAD_USER' already exists. Skipping user creation."
-        return
+  log "INFO" "Ensuring Nomad user and group exist..."
+
+  # Ensure group exists
+  if getent group "$NOMAD_GROUP" >/dev/null 2>&1; then
+    log "INFO" "Detected group '$NOMAD_GROUP' already exists."
+  else
+    sudo groupadd --system "$NOMAD_GROUP"
+    log "INFO" "Created system group '$NOMAD_GROUP'."
+  fi
+
+  # Ensure user exists
+  if id -u "$NOMAD_USER" >/dev/null 2>&1; then
+    log "INFO" "Detected user '$NOMAD_USER' already exists."
+    # Ensure the primary group is correct
+    CURRENT_PRIMARY_GROUP="$(id -gn "$NOMAD_USER")" || CURRENT_PRIMARY_GROUP=""
+    if [[ -n "$CURRENT_PRIMARY_GROUP" && "$CURRENT_PRIMARY_GROUP" != "$NOMAD_GROUP" ]]; then
+      sudo usermod -g "$NOMAD_GROUP" "$NOMAD_USER"
+      log "INFO" "Updated primary group for '$NOMAD_USER' to '$NOMAD_GROUP'."
     fi
-    
-    log "INFO" "Creating Nomad user and group..."
-
-    # Create the dedicated as a system group
-    sudo groupadd --system $NOMAD_GROUP
-
+  else
     # Create a dedicated user as a system user
-    sudo useradd --system --no-create-home -d $NOMAD_DIR_CONFIG -g $NOMAD_GROUP $NOMAD_USER
+    sudo useradd --system --no-create-home -d "$NOMAD_DIR_CONFIG" -g "$NOMAD_GROUP" "$NOMAD_USER"
+    log "INFO" "Created system user '$NOMAD_USER' with primary group '$NOMAD_GROUP'."
+  fi
 
-    log "INFO" "Done creating Nomad user and group"
+  log "INFO" "Done ensuring Nomad user and group."
+  return 0
 }
 
 function directory_create {
