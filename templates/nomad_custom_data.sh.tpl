@@ -3,6 +3,11 @@ set -euo pipefail
 
 LOGFILE="/var/log/nomad-cloud-init.log"
 SYSTEMD_DIR="${systemd_dir}"
+%{ if nomad_client }
+NOMAD_BIN_PATH="/usr/local/bin/nomad"
+%{ else }
+NOMAD_BIN_PATH="/usr/bin/nomad"
+%{ endif }
 NOMAD_DIR_CONFIG="${nomad_dir_config}"
 NOMAD_CONFIG_PATH="$NOMAD_DIR_CONFIG/nomad.hcl"
 NOMAD_DIR_TLS="${nomad_dir_config}/tls"
@@ -421,7 +426,7 @@ User=$NOMAD_USER
 Group=$NOMAD_GROUP
 
 ExecReload=/bin/kill -HUP \$MAINPID
-ExecStart=/usr/local/bin/nomad agent -config $NOMAD_DIR_CONFIG
+ExecStart=$NOMAD_BIN_PATH agent -config $NOMAD_DIR_CONFIG
 KillMode=process
 KillSignal=SIGINT
 LimitNOFILE=65536
