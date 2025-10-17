@@ -13,8 +13,13 @@ NOMAD_LICENSE_PATH="$NOMAD_DIR_LICENSE/license.hclic"
 NOMAD_DIR_LOGS="/var/log/nomad"
 NOMAD_DIR_BIN="${nomad_dir_bin}"
 CNI_DIR_BIN="${cni_dir_bin}"
+%{ if nomad_client }
+NOMAD_USER="root"
+NOMAD_GROUP="root"
+%{ else }
 NOMAD_USER="nomad"
 NOMAD_GROUP="nomad"
+%{ endif }
 NOMAD_INSTALL_URL="${nomad_install_url}"
 REQUIRED_PACKAGES="curl jq unzip"
 AWS_REGION="${aws_region}"
