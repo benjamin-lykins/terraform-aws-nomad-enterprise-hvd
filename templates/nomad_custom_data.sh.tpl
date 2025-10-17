@@ -206,6 +206,12 @@ function retrieve_gossip_encryption_key_from_awssm {
 
 # user_create creates a dedicated linux user for Nomad
 function user_group_create {
+
+    if id -u $NOMAD_USER >/dev/null 2>&1; then
+        log "INFO" "Detected user '$NOMAD_USER' already exists. Skipping user creation."
+        return
+    fi
+    
     log "INFO" "Creating Nomad user and group..."
 
     # Create the dedicated as a system group
